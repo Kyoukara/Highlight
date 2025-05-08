@@ -1,89 +1,91 @@
--- [ESP + Highlight + GUI + Loader External]
+-- [Optimized ESP + Highlight + GUI + Respawn/Revive Detection]
 spawn(function()
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
 
-    -- Fungsi ESP Nama di atas Head
-    local function createNameESP(plr)
-        if plr ~= LocalPlayer then
-            local function updateESP(char)
-                if char:FindFirstChild("Head") and not char.Head:FindFirstChild("ESP_Name") then
-                    local BillboardGui = Instance.new("BillboardGui")
-                    BillboardGui.Name = "ESP_Name"
-                    BillboardGui.Adornee = char.Head
-                    BillboardGui.Size = UDim2.new(0, 100, 0, 20)
-                    BillboardGui.StudsOffset = Vector3.new(0, 2, 0)
-                    BillboardGui.AlwaysOnTop = true
-                    BillboardGui.Parent = char.Head
+    -- Buat ESP dan Highlight
+    local function createESP(plr)
+        if plr == LocalPlayer then return end
 
-                    local NameLabel = Instance.new("TextLabel", BillboardGui)
-                    NameLabel.Size = UDim2.new(1, 0, 1, 0)
-                    NameLabel.BackgroundTransparency = 1
-                    NameLabel.Text = plr.DisplayName
-                    NameLabel.TextColor3 = Color3.fromRGB(0, 170, 255)
-                    NameLabel.TextStrokeTransparency = 0.5
-                    NameLabel.TextScaled = true
-                    NameLabel.Font = Enum.Font.GothamSemibold
-                end
+        local function applyToCharacter(char)
+            if not char then return end
+
+            -- Nama ESP
+            local head = char:FindFirstChild("Head")
+            if head and not head:FindFirstChild("ESP_Name") then
+                local BillboardGui = Instance.new("BillboardGui")
+                BillboardGui.Name = "ESP_Name"
+                BillboardGui.Adornee = head
+                BillboardGui.Size = UDim2.new(0, 100, 0, 20)
+                BillboardGui.StudsOffset = Vector3.new(0, 2, 0)
+                BillboardGui.AlwaysOnTop = true
+                BillboardGui.Parent = head
+
+                local NameLabel = Instance.new("TextLabel")
+                NameLabel.Size = UDim2.new(1, 0, 1, 0)
+                NameLabel.BackgroundTransparency = 1
+                NameLabel.Text = plr.DisplayName
+                NameLabel.TextColor3 = Color3.fromRGB(0, 170, 255)
+                NameLabel.TextStrokeTransparency = 0.5
+                NameLabel.TextScaled = true
+                NameLabel.Font = Enum.Font.GothamSemibold
+                NameLabel.Parent = BillboardGui
             end
 
-            local char = plr.Character or plr.CharacterAdded:Wait()
-            updateESP(char)
-            plr.CharacterAdded:Connect(updateESP)
-        end
-    end
-
-    -- Fungsi Highlight Merah + Outline Kuning Emas
-    local function highlightPlayer(plr)
-        if plr ~= LocalPlayer then
-            local char = plr.Character or plr.CharacterAdded:Wait()
-
-            -- Highlight merah (body fill)
+            -- Highlight Merah
             if not char:FindFirstChild("Highlight_Red") then
                 local highlight = Instance.new("Highlight")
                 highlight.Name = "Highlight_Red"
                 highlight.Adornee = char
                 highlight.FillColor = Color3.fromRGB(255, 0, 0)
                 highlight.FillTransparency = 0.7
-                highlight.OutlineTransparency = 1 -- Tidak menampilkan outline di layer ini
+                highlight.OutlineTransparency = 1
                 highlight.Parent = char
             end
 
-            -- Outline emas menyala
+            -- Outline Emas
             if not char:FindFirstChild("Highlight_Outline") then
                 local outline = Instance.new("Highlight")
                 outline.Name = "Highlight_Outline"
                 outline.Adornee = char
                 outline.FillTransparency = 1
-                outline.OutlineColor = Color3.fromRGB(255, 215, 0) -- Kuning Emas
-                outline.OutlineTransparency = 0.1 -- Sangat terlihat
+                outline.OutlineColor = Color3.fromRGB(255, 215, 0)
+                outline.OutlineTransparency = 0.1
                 outline.Parent = char
             end
         end
-    end
 
-    -- Inisialisasi untuk semua pemain saat ini
-    for _, plr in ipairs(Players:GetPlayers()) do
-        highlightPlayer(plr)
-        createNameESP(plr)
-    end
+        -- Pasang pada karakter saat ini
+        if plr.Character then
+            applyToCharacter(plr.Character)
+        end
 
-    -- Jika ada pemain baru
-    Players.PlayerAdded:Connect(function(plr)
-        plr.CharacterAdded:Connect(function()
-            highlightPlayer(plr)
-            createNameESP(plr)
+        -- Pasang ulang setiap kali karakter berubah (respawn/revive)
+        plr.CharacterAdded:Connect(function(char)
+            char:WaitForChild("HumanoidRootPart", 5) -- Pastikan karakter sudah sepenuhnya spawn
+            task.wait(0.5) -- Delay kecil untuk keamanan
+            applyToCharacter(char)
         end)
+    end
+
+    -- Pasang ESP ke semua pemain
+    for _, player in ipairs(Players:GetPlayers()) do
+        createESP(player)
+    end
+
+    -- Pasang untuk pemain baru
+    Players.PlayerAdded:Connect(function(plr)
+        createESP(plr)
     end)
 
-    -- GUI sederhana untuk hide ESP
+    -- GUI untuk hide
     local CoreGui = game:GetService("CoreGui")
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "MiniHighlightGUI"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = CoreGui
 
-    local Frame = Instance.new("Frame", ScreenGui)
+    local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(0, 160, 0, 50)
     Frame.Position = UDim2.new(0.5, -80, 0.1, 0)
     Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -91,16 +93,19 @@ spawn(function()
     Frame.BorderSizePixel = 0
     Frame.Active = true
     Frame.Draggable = true
+    Frame.Parent = ScreenGui
 
     Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
 
-    local HideBtn = Instance.new("TextButton", Frame)
+    local HideBtn = Instance.new("TextButton")
     HideBtn.Size = UDim2.new(1, -10, 1, -10)
     HideBtn.Position = UDim2.new(0, 5, 0, 5)
     HideBtn.Text = "Hide GUI"
     HideBtn.TextColor3 = Color3.new(1, 1, 1)
     HideBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
     HideBtn.BorderSizePixel = 0
+    HideBtn.Parent = Frame
+
     Instance.new("UICorner", HideBtn).CornerRadius = UDim.new(0, 6)
 
     HideBtn.MouseButton1Click:Connect(function()
